@@ -4,7 +4,7 @@
 
 This is a React-based web application for tracking rides in real-time. It allows users to input pickup and destination locations, view the route on a map, and see live driver information.
 ## Images
-see the app-images folder for ap screeshoots.
+see the app-images folder for app screeshoots.
 
 ## Features
 
