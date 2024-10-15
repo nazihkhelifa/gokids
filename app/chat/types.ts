@@ -11,6 +11,7 @@ export interface User {
   user_child_class_address: string;
   user_note: number;
   available_rides: number;
+  image_url?: string;
 }
 
 export interface Message {
@@ -21,6 +22,7 @@ export interface Message {
   content: string;
   timestamp: Timestamp;
   type: string;
+  isEdited?: boolean;
 }
 
 export interface Conversation {

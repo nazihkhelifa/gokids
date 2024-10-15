@@ -1,7 +1,6 @@
-// app/chat/new/page.tsx
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa";
 import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
@@ -12,6 +11,9 @@ export default function NewChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const userId = searchParams.get('userId');
+  const driverId = searchParams.get('driverId');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,11 +21,11 @@ export default function NewChat() {
     setError(null);
 
     try {
-      console.log("Attempting to create new conversation...");
+      console.log("Creating new conversation...");
       const newConversation = {
         user: {
-          user_id: 1,
-          user_name: "John Doe",
+          user_id: parseInt(userId || "1"),
+          user_name: "John Doe", // You might want to fetch this dynamically
           user_age: 35,
           user_child_name: "Jane Doe",
           user_child_age: 10,
@@ -33,21 +35,21 @@ export default function NewChat() {
           available_rides: 10
         },
         driver: {
-          id: 1,
-          name: "Anil Kumar"
+          id: 4,
+          name: "Anil balo" // You might want to fetch this dynamically
         },
         messages: [
           {
             id: 1,
             sender: "user",
-            sender_id: "1",
-            sender_name: "John Doe",
+            sender_id: userId || "1",
+            sender_name: "John Doe", // You might want to fetch this dynamically
             content: message,
-            timestamp: Timestamp.fromDate(new Date()), // Use current date instead of serverTimestamp
+            timestamp: Timestamp.fromDate(new Date()),
             type: "text"
           }
         ],
-        lastMessageTime: serverTimestamp() // This is fine as it's not inside an array
+        lastMessageTime: serverTimestamp()
       };
 
       console.log("New conversation object:", newConversation);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   FaHome,
@@ -8,6 +8,11 @@ import {
   FaCalendarAlt,
   FaClock,
   FaCar,
+  FaExclamationTriangle,
+  FaChevronLeft,
+  FaChevronRight,
+  FaTimes,
+  FaUser,
 } from "react-icons/fa";
 
 interface Vehicle {
@@ -32,25 +37,32 @@ interface User {
   user_home_address: string;
   user_child_class_address: string;
   user_note: number;
+  image_url: string;
   available_rides: number;
+}
+
+interface PickupTimes {
+  morning: string | null;
+  afternoon: string | null;
+}
+
+interface DateSelection {
+  date: Date;
+  pickupTimes: PickupTimes;
 }
 
 export default function Schedule() {
   const [userData, setUserData] = useState<User | null>(null);
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [dayPickupTimes, setDayPickupTimes] = useState<{
-    [key: string]: string;
-  }>({});
+  const [selectedDates, setSelectedDates] = useState<DateSelection[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [useAlternativeHomeAddress, setUseAlternativeHomeAddress] =
-    useState<boolean>(false);
-  const [alternativeHomeAddress, setAlternativeHomeAddress] =
-    useState<string>("");
-  const [useAlternativeClassAddress, setUseAlternativeClassAddress] =
-    useState<boolean>(false);
-  const [alternativeClassAddress, setAlternativeClassAddress] =
-    useState<string>("");
+  const [useAlternativeHomeAddress, setUseAlternativeHomeAddress] = useState<boolean>(false);
+  const [alternativeHomeAddress, setAlternativeHomeAddress] = useState<string>("");
+  const [useAlternativeClassAddress, setUseAlternativeClassAddress] = useState<boolean>(false);
+  const [alternativeClassAddress, setAlternativeClassAddress] = useState<string>("");
+  const [visibleDates, setVisibleDates] = useState<Date[]>([]);
+
+  const datePickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetching user data
@@ -77,7 +89,7 @@ export default function Schedule() {
         }
         const data = await res.json();
         setVehicles(data);
-        console.log("Vehicles data:", data); // Debugging log
+        console.log("Vehicles data:", data);
       } catch (error) {
         console.error("Error fetching vehicles:", error);
       }
@@ -86,59 +98,83 @@ export default function Schedule() {
     fetchUserData();
     fetchVehicles();
 
-    const data = localStorage.getItem("overviewData");
-    if (data) {
-      const parsedData = JSON.parse(data);
-
-      if (parsedData.vehicle) {
-        setSelectedVehicle(parsedData.vehicle.id);
-      }
-
-      setSelectedDays(parsedData.days || []);
-      setDayPickupTimes(parsedData.pickupTimes || {});
-    }
+    // Initialize visible dates
+    const today = new Date();
+    setVisibleDates(getDateRange(today, 14));
   }, []);
 
-  const toggleDay = (day: string) => {
-    setSelectedDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
-
-    // Initialize the pickup time for the day when selected
-    if (!selectedDays.includes(day)) {
-      setDayPickupTimes((prevTimes) => ({
-        ...prevTimes,
-        [day]: "17:30", // Default time
-      }));
-    } else {
-      setDayPickupTimes((prevTimes) => {
-        const newTimes = { ...prevTimes };
-        delete newTimes[day]; // Remove the time if the day is deselected
-        return newTimes;
-      });
-    }
+  const getDateRange = (startDate: Date, days: number) => {
+    return Array.from({ length: days }, (_, i) => {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      return date;
+    });
   };
 
-  const handlePickupTimeChange = (day: string, time: string) => {
-    setDayPickupTimes((prevTimes) => ({
-      ...prevTimes,
-      [day]: time,
-    }));
+  const scrollDates = (direction: 'left' | 'right') => {
+    const firstDate = visibleDates[0];
+    const lastDate = visibleDates[visibleDates.length - 1];
+    const newDates = direction === 'left'
+      ? getDateRange(new Date(firstDate.setDate(firstDate.getDate() - 7)), 14)
+      : getDateRange(new Date(lastDate.setDate(lastDate.getDate() + 1)), 14);
+    setVisibleDates(newDates);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDates((prevDates) => {
+      const existingDateIndex = prevDates.findIndex(
+        (d) => d.date.toDateString() === date.toDateString()
+      );
+      if (existingDateIndex > -1) {
+        // If date is already selected, remove it
+        return prevDates.filter((_, index) => index !== existingDateIndex);
+      } else {
+        // If date is not selected, add it
+        return [...prevDates, { date, pickupTimes: { morning: null, afternoon: null } }];
+      }
+    });
+  };
+
+  const handlePickupTimeChange = (date: Date, period: 'morning' | 'afternoon', time: string | null) => {
+    setSelectedDates((prevDates) => {
+      return prevDates.map((d) => {
+        if (d.date.toDateString() === date.toDateString()) {
+          return {
+            ...d,
+            pickupTimes: {
+              ...d.pickupTimes,
+              [period]: time,
+            },
+          };
+        }
+        return d;
+      });
+    });
   };
 
   const handleVehicleSelect = (vehicleId: string) => {
     setSelectedVehicle(vehicleId);
   };
 
+  const isConfirmDisabled = () => {
+    return (
+      selectedDates.length === 0 ||
+      selectedDates.some((d) => !d.pickupTimes.morning && !d.pickupTimes.afternoon) ||
+      !selectedVehicle
+    );
+  };
+
   const handleConfirm = () => {
     const selectedVehicleDetails = vehicles.find(
       (vehicle) => vehicle.id === selectedVehicle
     );
-    console.log("Selected vehicle details:", selectedVehicleDetails); // Debugging log
+    console.log("Selected vehicle details:", selectedVehicleDetails);
+    const totalRides = selectedDates.reduce((total, d) => {
+      return total + (d.pickupTimes.morning ? 1 : 0) + (d.pickupTimes.afternoon ? 1 : 0);
+    }, 0);
     const overviewData = {
       vehicle: selectedVehicleDetails,
-      days: selectedDays,
-      pickupTimes: dayPickupTimes,
+      dates: selectedDates,
       address: {
         home: useAlternativeHomeAddress
           ? alternativeHomeAddress
@@ -147,166 +183,270 @@ export default function Schedule() {
           ? alternativeClassAddress
           : userData?.user_child_class_address || "",
       },
+      totalRides: totalRides,
     };
     localStorage.setItem("overviewData", JSON.stringify(overviewData));
   };
 
-  const isConfirmDisabled = !selectedVehicle || selectedDays.length === 0;
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
 
   return (
-    <div className="p-6">
+    <div className="max-w-2xl mx-auto p-8 font-sans text-gray-900 pb-24">
       {/* User ID Display */}
-      <div className="mb-4">
-        <p className="text-xl font-semibold">User: {userData?.user_name}</p>
+      <div className="mb-12 text-center flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-bold mb-2">Schedule</h1>
+          <p className="text-xl text-gray-500">Hello, {userData?.user_name}</p>
+        </div>
+        {userData?.image_url && (
+          <img
+            src={userData.image_url}
+            alt={`${userData.user_name}'s profile`}
+            className="w-12 h-12 rounded-full ml-4 border-2 border-gray-300"
+          />
+        )}
       </div>
-
+  
       {/* Address section */}
-      <div className="mb-4">
-        <h2 className="font-semibold mb-2 flex items-center">
-          <FaHome className="mr-2" /> Address
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold mb-6 flex items-center">
+          <FaHome className="mr-3 text-gray-400" /> Address
         </h2>
-        <div className="bg-gray-100 p-3 rounded-lg mb-2">
-          <p className="font-semibold">Home</p>
-          <p className="text-sm text-gray-600">
+        <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm">
+          <p className="font-semibold mb-2">Home</p>
+          <p className="text-gray-600">
             {useAlternativeHomeAddress ? (
               <input
                 type="text"
                 value={alternativeHomeAddress}
                 onChange={(e) => setAlternativeHomeAddress(e.target.value)}
                 placeholder="Enter alternative home address"
-                className="bg-gray-100 p-2 rounded-lg w-full"
+                className="w-full p-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             ) : (
               userData?.user_home_address
             )}
           </p>
         </div>
-        <div className="flex items-center mt-2 mb-2">
+        <div className="flex items-center mb-6">
           <input
             type="checkbox"
             checked={useAlternativeHomeAddress}
             onChange={(e) => setUseAlternativeHomeAddress(e.target.checked)}
-            className="mr-2"
+            className="mr-3 form-checkbox h-5 w-5 text-blue-500 rounded-md"
           />
-          <label className="text-sm">Use an alternative home address</label>
+          <label className="text-gray-700">Use an alternative home address</label>
         </div>
-        <div className="bg-gray-100 p-3 rounded-lg">
-          <p className="font-semibold">Class</p>
-          <p className="text-sm text-gray-600">
+        <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm">
+          <p className="font-semibold mb-2">Class</p>
+          <p className="text-gray-600">
             {useAlternativeClassAddress ? (
               <input
                 type="text"
                 value={alternativeClassAddress}
                 onChange={(e) => setAlternativeClassAddress(e.target.value)}
                 placeholder="Enter alternative class address"
-                className="bg-gray-100 p-2 rounded-lg w-full"
+                className="w-full p-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             ) : (
               userData?.user_child_class_address
             )}
           </p>
         </div>
-        <div className="flex items-center mt-2">
+        <div className="flex items-center">
           <input
             type="checkbox"
             checked={useAlternativeClassAddress}
             onChange={(e) => setUseAlternativeClassAddress(e.target.checked)}
-            className="mr-2"
+            className="mr-3 form-checkbox h-5 w-5 text-blue-500 rounded-md"
           />
-          <label className="text-sm">Use an alternative class address</label>
+          <label className="text-gray-700">Use an alternative class address</label>
         </div>
       </div>
-
-      {/* Frequency section */}
-      <div className="mb-4">
-        <h2 className="font-semibold mb-2 flex items-center">
-          <FaCalendarAlt className="mr-2" /> Frequency
+  
+      {/* Calendar View */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold mb-6 flex items-center">
+          <FaCalendarAlt className="mr-3 text-gray-400" /> Select Dates
         </h2>
-        <div className="flex justify-between">
-          {["M", "T", "W", "T1", "F", "S", "S1"].map((day) => (
-            <button
-              key={day}
-              onClick={() => toggleDay(day)}
-              className={`w-10 h-10 rounded-full ${
-                selectedDays.includes(day)
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-            >
-              {day.charAt(0)}
-            </button>
+        <div className="relative">
+          <button
+            onClick={() => scrollDates('left')}
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
+          >
+            <FaChevronLeft className="text-gray-600" />
+          </button>
+          <div
+            ref={datePickerRef}
+            className="flex overflow-x-auto hide-scrollbar py-4"
+            style={{ scrollBehavior: 'smooth' }}
+          >
+            {visibleDates.map((date) => (
+              <button
+                key={date.toISOString()}
+                onClick={() => handleDateSelect(date)}
+                className={`flex-shrink-0 w-20 h-20 mx-2 rounded-full flex flex-col items-center justify-center text-sm font-semibold transition-all duration-200 ${
+                  selectedDates.some((d) => d.date.toDateString() === date.toDateString())
+                    ? "bg-purple-500 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <span>{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                <span>{date.getDate()}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => scrollDates('right')}
+            className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
+          >
+            <FaChevronRight className="text-gray-600" />
+          </button>
+        </div>
+      </div>
+  
+      {/* Pickup Time section */}
+      {selectedDates.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold mb-6 flex items-center">
+            <FaClock className="mr-3 text-gray-400" /> Pickup Times
+          </h2>
+          {selectedDates.map((dateSelection) => (
+            <div key={dateSelection.date.toISOString()} className="bg-white rounded-2xl p-6 shadow-sm mb-4">
+              <h3 className="font-semibold text-lg mb-4">{formatDate(dateSelection.date)}</h3>
+              <div className="mb-4">
+                <label className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    checked={dateSelection.pickupTimes.morning !== null}
+                    onChange={() => handlePickupTimeChange(
+                      dateSelection.date,
+                      'morning',
+                      dateSelection.pickupTimes.morning ? null : "07:30"
+                    )}
+                    className="mr-3 form-checkbox h-5 w-5 text-blue-500 rounded-md"
+                  />
+                  <span className="text-gray-700 font-medium">Morning Pickup</span>
+                </label>
+                {dateSelection.pickupTimes.morning !== null && (
+                  <input
+                    type="time"
+                    value={dateSelection.pickupTimes.morning || "07:30"}
+                    onChange={(e) => handlePickupTimeChange(dateSelection.date, 'morning', e.target.value)}
+                    className="w-full p-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
+              </div>
+              <div>
+                <label className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    checked={dateSelection.pickupTimes.afternoon !== null}
+                    onChange={() => handlePickupTimeChange(
+                      dateSelection.date,
+                      'afternoon',
+                      dateSelection.pickupTimes.afternoon ? null : "15:30"
+                    )}
+                    className="mr-3 form-checkbox h-5 w-5 text-blue-500 rounded-md"
+                  />
+                  <span className="text-gray-700 font-medium">Afternoon Pickup</span>
+                </label>
+                {dateSelection.pickupTimes.afternoon !== null && (
+                  <input
+                    type="time"
+                    value={dateSelection.pickupTimes.afternoon || "15:30"}
+                    onChange={(e) => handlePickupTimeChange(dateSelection.date, 'afternoon', e.target.value)}
+                    className="w-full p-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-
-      {/* Pickup Time section */}
-      {selectedDays.map((day) => (
-        <div key={day} className="mb-4">
-          <h3 className="font-semibold mb-2 flex items-center">
-            <FaClock className="mr-2" /> Pickup Time for {day.charAt(0)}
-          </h3>
-          <div className="bg-gray-100 p-3 rounded-lg">
-            <input
-              type="time"
-              value={dayPickupTimes[day]}
-              onChange={(e) => handlePickupTimeChange(day, e.target.value)}
-              className="bg-transparent w-full"
-            />
-          </div>
-        </div>
-      ))}
-
+      )}
+  
       {/* Vehicle section */}
-      <div className="mb-4">
-        <h2 className="font-semibold mb-2 flex items-center">
-          <FaCar className="mr-2" /> Vehicle
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold mb-6 flex items-center">
+          <FaCar className="mr-3 text-gray-400" /> Vehicle
         </h2>
         {vehicles.map((vehicle) => (
           <div
             key={vehicle.id}
-            className={`p-3 rounded-lg mb-2 ${
+            className={`bg-white rounded-2xl p-6 mb-4 transition-all duration-200 ${
               selectedVehicle === vehicle.id
-                ? "bg-blue-100 border border-blue-500"
-                : "bg-gray-100"
+                ? "border-2 border-blue-500 shadow-md"
+                : "hover:shadow-md"
             }`}
           >
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center mb-3">
               <div>
-                <p className="font-semibold">{vehicle.name}</p>
-                <p className="text-sm text-gray-600">
+                <p className="font-semibold text-lg">{vehicle.name}</p>
+                <p className="text-gray-500">
                   {vehicle.seats} seats - {vehicle.price}
                 </p>
               </div>
               <button
                 onClick={() => handleVehicleSelect(vehicle.id)}
-                className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm"
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                  selectedVehicle === vehicle.id
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               >
-                Select
+                {selectedVehicle === vehicle.id ? "Selected" : "Select"}
               </button>
             </div>
             <Link
               href={`/driver/${vehicle.driver.id}`}
-              className="text-blue-500 text-sm underline"
+              className="text-blue-500 text-sm hover:underline"
             >
               View Driver Details
             </Link>
           </div>
         ))}
       </div>
-
-      <Link href="/overview">
-        <button
-          onClick={handleConfirm}
-          className={`block w-full text-white text-center py-2 rounded-lg ${
-            isConfirmDisabled ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500"
-          }`}
-          disabled={isConfirmDisabled}
-        >
-          {selectedVehicle
-            ? `Confirm ${vehicles.find((v) => v.id === selectedVehicle)?.name}`
-            : "Select a vehicle"}
-        </button>
-      </Link>
+  
+      {/* Confirmation section */}
+      {isConfirmDisabled() && (
+        <div className="mb-6 p-4 bg-yellow-100 rounded-lg flex items-center">
+          <FaExclamationTriangle className="text-yellow-500 mr-2 flex-shrink-0" />
+          <p className="text-sm text-yellow-700">
+            Please select at least one date with pickup times and a vehicle.
+          </p>
+        </div>
+      )}
+  
+      {/* New Bottom Navigation Bar */}
+      <div className="fixed bottom-4 left-0 right-0 flex justify-center items-center z-30">
+        <div className="flex items-center space-x-3">
+          <Link 
+            href="/account" 
+            className="bg-black p-4 rounded-full flex items-center justify-center" 
+            style={{ width: '55px', height: '55px' }}
+          >
+            <FaUser className="text-white text-xl" />
+          </Link>
+          <Link 
+            href={isConfirmDisabled() ? "#" : "/overview"}
+            onClick={isConfirmDisabled() ? undefined : handleConfirm}
+            className={`bg-black rounded-full text-white font-bold flex items-center justify-between px-4 ${
+              isConfirmDisabled() ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            style={{ width: '280px', height: '55px' }}
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-5 h-5 bg-white rounded-sm"></div>
+              <span className="text-lg">
+                {isConfirmDisabled() ? "Complete all selections" : "Confirm Schedule"}
+              </span>
+            </div>
+            <span className="absolute right-4 text-xl">&gt;</span>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,83 +1,59 @@
-import { View, Image } from "react-native";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import React, { useRef, useEffect } from 'react';
+import Image from 'next/image';
 
-import { icons } from "@/constants";
-import { GoogleInputProps } from "@/types/type";
+interface GoogleTextInputProps {
+  icon?: string;
+  containerStyle?: string;
+  handlePress: (location: { latitude: number; longitude: number; address: string }) => void;
+  placeholder?: string;
+}
 
-const googlePlacesApiKey = process.env.EXPO_PUBLIC_PLACES_API_KEY;
-
-const GoogleTextInput = ({
+const GoogleTextInput: React.FC<GoogleTextInputProps> = ({
   icon,
-  initialLocation,
   containerStyle,
-  textInputBackgroundColor,
   handlePress,
-}: GoogleInputProps) => {
+  placeholder,
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google && inputRef.current) {
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current);
+      autocompleteRef.current.addListener('place_changed', handlePlaceSelect);
+    }
+
+    return () => {
+      if (autocompleteRef.current) {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, []);
+
+  const handlePlaceSelect = () => {
+    const place = autocompleteRef.current?.getPlace();
+    if (place && place.geometry && place.geometry.location) {
+      const location = {
+        latitude: place.geometry.location.lat(),
+        longitude: place.geometry.location.lng(),
+        address: place.formatted_address || '',
+      };
+      handlePress(location);
+    }
+  };
+
   return (
-    <View
-      className={`flex flex-row items-center justify-center relative z-50 rounded-xl ${containerStyle}`}
-    >
-      <GooglePlacesAutocomplete
-        fetchDetails={true}
-        placeholder="Search"
-        debounce={200}
-        styles={{
-          textInputContainer: {
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 20,
-            marginHorizontal: 20,
-            position: "relative",
-            shadowColor: "#d4d4d4",
-          },
-          textInput: {
-            backgroundColor: textInputBackgroundColor
-              ? textInputBackgroundColor
-              : "white",
-            fontSize: 16,
-            fontWeight: "600",
-            marginTop: 5,
-            width: "100%",
-            borderRadius: 200,
-          },
-          listView: {
-            backgroundColor: textInputBackgroundColor
-              ? textInputBackgroundColor
-              : "white",
-            position: "relative",
-            top: 0,
-            width: "100%",
-            borderRadius: 10,
-            shadowColor: "#d4d4d4",
-            zIndex: 99,
-          },
-        }}
-        onPress={(data, details = null) => {
-          handlePress({
-            latitude: details?.geometry.location.lat!,
-            longitude: details?.geometry.location.lng!,
-            address: data.description,
-          });
-        }}
-        query={{
-          key: googlePlacesApiKey,
-          language: "en",
-        }}
-        renderLeftButton={() => (
-          <View className="justify-center items-center w-6 h-6">
-            <Image
-              source={icon ? icon : icons.search}
-              className="w-6 h-6"
-              resizeMode="contain"
-            />
-          </View>
-        )}
-        textInputProps={{
-          placeholderTextColor: "gray",
-          placeholder: initialLocation ?? "Where do you want to go?",
-        }}
+    <div className={`flex flex-row items-center justify-center relative z-50 rounded-xl ${containerStyle}`}>
+      <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+        {icon && <Image src={icon} alt="Search icon" width={24} height={24} />}
+      </div>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder || "Search"}
+        className="w-full py-2 pl-10 pr-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-    </View>
+    </div>
   );
 };
 
