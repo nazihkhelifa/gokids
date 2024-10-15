@@ -1,6 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { query } from "@/lib/db";
 
+interface DateSelection {
+  date: string;
+  pickupTimes: {
+    morning: string | null;
+    afternoon: string | null;
+  };
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -14,39 +22,39 @@ export default async function handler(
     vehicleName,
     seats,
     price,
-    days,
-    pickupTimes,
+    dates,
     pickupAddress,
     dropAddress,
     driverName,
+    totalRides,
   } = req.body;
 
-  // Validate that all necessary fields are provided
   if (
     !userId ||
     !vehicleName ||
     !seats ||
     !price ||
-    !days ||
-    !pickupTimes ||
+    !dates ||
     !pickupAddress ||
     !dropAddress ||
-    !driverName
+    !driverName ||
+    !totalRides
   ) {
     return res.status(400).json({ message: "Missing required parameters" });
   }
 
   try {
-    // Format the days as a PostgreSQL array and pickupTimes as a JSON string
-    const formattedDays = `{${days.join(",")}}`;
-    const formattedPickupTimes = JSON.stringify(pickupTimes);
+    const formattedDates = dates.map((dateSelection: DateSelection) => ({
+      date: new Date(dateSelection.date).toISOString().split('T')[0],
+      morning: dateSelection.pickupTimes.morning,
+      afternoon: dateSelection.pickupTimes.afternoon,
+    }));
 
-    // Insert ride into the database
     const result = await query(`
-      INSERT INTO rides 
-      (user_id, vehicle_name, seats, price, days, pickup_times, pickup_address, drop_address, driver_name)
+      INSERT INTO ride
+      (user_id, vehicle_name, seats, price, dates, pickup_address, drop_address, driver_name, total_rides)
       VALUES 
-      (${userId}, '${vehicleName}', ${seats}, '${price}', '${formattedDays}', '${formattedPickupTimes}', '${pickupAddress}', '${dropAddress}', '${driverName}')
+      (${userId}, '${vehicleName}',${seats},${price},'${JSON.stringify(formattedDates)}','${pickupAddress}','${dropAddress}','${driverName}',${totalRides})
     `);
 
     res.status(201).json({ message: "Ride added successfully" });

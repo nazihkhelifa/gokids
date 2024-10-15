@@ -10,7 +10,7 @@ export default async function handler(
   try {
     const userId = 1; // Example user ID
     const result = await query(
-      `SELECT * FROM rides WHERE user_id = ${userId}`,
+      `SELECT * FROM ride WHERE user_id = ${userId}`,
      
     );
 
