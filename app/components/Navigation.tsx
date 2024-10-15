@@ -1,8 +1,9 @@
 "use client";
+
 import React from 'react';
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { FaHome, FaClipboardList, FaWallet, FaUser } from "react-icons/fa";
+import { FaHome, FaClipboardList, FaWallet, FaUser, FaHistory } from "react-icons/fa";
 
 const Navigation = ({ show = true }) => {
   const pathname = usePathname();
@@ -11,6 +12,7 @@ const Navigation = ({ show = true }) => {
   const navItems = [
     { name: "Home", icon: <FaHome />, path: "/" },
     { name: "Schedule", icon: <FaClipboardList />, path: "/schedule" },
+    { name: "History", icon: <FaHistory />, path: "/history" },
     { name: "Wallet", icon: <FaWallet />, path: "/wallet" },
   ];
 
@@ -22,8 +24,8 @@ const Navigation = ({ show = true }) => {
         <nav className="bg-black rounded-full shadow-lg flex items-center justify-center" style={{ width: '55px', height: '55px' }}>
           <NavItem item={accountItem} pathname={pathname} size={28} />
         </nav>
-        <nav 
-          className="bg-black rounded-full shadow-lg flex items-center justify-between px-6" 
+        <nav
+          className="bg-black rounded-full shadow-lg flex items-center justify-between px-6"
           style={{ width: '280px', height: '55px' }}
         >
           {navItems.map((item) => (

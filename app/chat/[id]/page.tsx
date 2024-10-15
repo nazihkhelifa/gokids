@@ -1,10 +1,10 @@
 // app/chat/[id]/page.tsx
-"use client"; 
+"use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { IoArrowBack } from "react-icons/io5";
 import { IoMdSend } from "react-icons/io";
-import { FaRegSmile, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
+import { FaRegSmile, FaEdit, FaCheck, FaTimes, FaHome } from "react-icons/fa";
 import { doc, updateDoc, arrayUnion, Timestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/clientApp';
 import { Conversation, Message } from "../types";
@@ -177,14 +177,14 @@ export default function ConversationDetail({ params }: { params: { id: string } 
         <h1 className="text-lg font-semibold ml-4">Messages Detail</h1>
         <div className="ml-auto bg-gray-200 rounded-full w-8 h-8">
           {driverImage && (
-            <img src={driverImage} alt={conversation.driver.name} className="w-8 h-8 rounded-full" />
+            <img src={driverImage} alt={conversation?.driver.name} className="w-8 h-8 rounded-full" />
           )}
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {conversation.messages && conversation.messages.length > 0 ? (
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 mb-16"> {/* Added mb-16 for bottom padding */}
+        {conversation?.messages && conversation.messages.length > 0 ? (
           conversation.messages.map((message, index) => {
             const isUserMessage = message.sender === "user";
             const isNewDay = index === 0 || 
@@ -272,40 +272,53 @@ export default function ConversationDetail({ params }: { params: { id: string } 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area */}
-      <div className="bg-white p-4 relative">
-        <form onSubmit={handleSendMessage} className="flex items-center bg-gray-100 rounded-full px-4 py-2">
-          <button
-            type="button"
-            className="text-gray-400 mr-2"
-            onClick={toggleEmojiPicker}
+      {/* Centered Bottom Navigation Bar with Message Input */}
+      <div className="fixed bottom-4 left-0 right-0 flex justify-center items-center z-30">
+        <div className="flex items-center space-x-3 w-full max-w-md px-4">
+          {/* Home button on the left */}
+          <Link
+            href="/"
+            className="bg-black rounded-full flex items-center justify-center transition-colors duration-300"
+            style={{ minWidth: '55px', height: '55px' }}
           >
-            <FaRegSmile className="w-5 h-5" />
-          </button>
-          {showEmojiPicker && (
-            <div className="absolute bottom-16 left-0 z-10">
-              <EmojiPicker onEmojiClick={handleEmojiClick} />
-            </div>
-          )}
-          <input
-            ref={inputRef}
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a Message..."
-            className="flex-1 bg-transparent focus:outline-none"
-          />
-          {newMessage.trim() ? (
+            <FaHome className="text-white text-xl" />
+          </Link>
+          
+          {/* Message input in the center */}
+          <form onSubmit={handleSendMessage} className="flex-1 flex items-center bg-black rounded-full px-4 py-2" style={{ height: '55px' }}>
             <button
+              type="button"
+              className="text-white mr-2"
+              onClick={toggleEmojiPicker}
+            >
+              <FaRegSmile className="w-5 h-5" />
+            </button>
+            <input
+              ref={inputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a Message..."
+              className="flex-1 bg-transparent text-white focus:outline-none placeholder-gray-400"
+            />
+            {newMessage.trim() ? (
+              <button
               type="submit"
-              className="text-blue-500 ml-2"
+              className="bg-yellow-500 text-white p-2 rounded-full ml-2"
               disabled={isSending}
             >
               <IoMdSend className="w-5 h-5" />
             </button>
-          ) : null}
-        </form>
+            ) : null}
+          </form>
+        </div>
       </div>
+
+      {showEmojiPicker && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-40">
+          <EmojiPicker onEmojiClick={handleEmojiClick} />
+        </div>
+      )}
     </div>
   );
 }

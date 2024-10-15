@@ -1,74 +1,116 @@
-
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Elements, useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
+import { FaHome, FaCar, FaCreditCard } from 'react-icons/fa';
 
-// Initialize Stripe with the publishable key
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
-// Define the User interface
 interface User {
   user_id: number;
   user_name: string;
   available_rides: number;
 }
 
-// RidePackage component
-const RidePackage: React.FC<{
+interface RidePackage {
+  name: string;
   rides: number;
   price: string;
-  selected: boolean;
-  onSelect: () => void;
-}> = ({ rides, price, selected, onSelect }) => (
-  <div
-    onClick={onSelect}
-    className={`p-6 rounded-3xl shadow-lg mb-4 cursor-pointer transition-all duration-300 ${
-      selected ? 'bg-gradient-to-r from-blue-400 to-blue-600 text-white' : 'bg-white text-gray-800'
-    } flex justify-between items-center`}
-  >
-    <div>
-      <h3 className="font-semibold text-lg">{rides} Rides</h3>
-      <p className="font-bold text-3xl mt-2">{price}</p>
-    </div>
-    {selected && (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-      </svg>
-    )}
-  </div>
-);
+}
 
-// CheckoutForm component
+const RidePackageSelector: React.FC<{
+  packages: RidePackage[];
+  selectedPackage: RidePackage | null;
+  onSelect: (packageName: RidePackage) => void;
+}> = ({ packages, selectedPackage, onSelect }) => {
+  return (
+    <div className="bg-gray-100 text-gray-800 p-4 rounded-lg shadow-md">
+      <div className="flex justify-between mb-2">
+        <span className="font-bold">Economy</span>
+        <span className="font-bold">Premium</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {packages.map((pkg) => (
+          <div
+            key={pkg.name}
+            className={`p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+              selectedPackage?.name === pkg.name
+                ? 'bg-black text-white'
+                : 'bg-white hover:bg-gray-200'
+            }`}
+            onClick={() => onSelect(pkg)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <FaCar className={`text-2xl ${selectedPackage?.name === pkg.name ? 'text-white' : 'text-gray-600'}`} />
+              <span className="text-xs font-semibold">{pkg.rides} rides</span>
+            </div>
+            <div className="text-lg font-bold">{pkg.name}</div>
+            <div className="text-sm">${pkg.price}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const PaymentMethodInput: React.FC = () => {
+  return (
+    <div className="mt-6 bg-white p-4 rounded-lg shadow-md">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-gray-800 font-bold">Payment</span>
+        <FaCreditCard className="text-gray-600" />
+      </div>
+      <CardElement
+        options={{
+          style: {
+            base: {
+              fontSize: '16px',
+              color: '#424770',
+              '::placeholder': {
+                color: '#aab7c4',
+              },
+            },
+            invalid: {
+              color: '#9e2146',
+            },
+          },
+        }}
+      />
+      <div className="flex justify-between mt-2">
+        <span className="text-gray-600 text-sm">Change</span>
+        <span className="text-gray-800 text-sm">↑↓</span>
+      </div>
+    </div>
+  );
+};
+
 const CheckoutForm: React.FC<{
-  selectedPackage: number;
-  clientSecret: string;
+  selectedPackage: RidePackage | null;
+  clientSecret: string | null;
   userId: number;
   currentRides: number;
-}> = ({ selectedPackage, clientSecret, userId, currentRides }) => {
+  onPaymentComplete: () => void;
+  onProcessingChange: (isProcessing: boolean) => void;
+}> = ({ selectedPackage, clientSecret, userId, currentRides, onPaymentComplete, onProcessingChange }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!stripe || !elements) {
+  const handleSubmit = async () => {
+    if (!stripe || !elements || !clientSecret || !selectedPackage) {
       return;
     }
 
-    setProcessing(true);
+    onProcessingChange(true);
 
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) {
       return;
     }
 
-    // Confirm the payment using the client secret
     const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
       payment_method: {
         card: cardElement,
@@ -77,13 +119,10 @@ const CheckoutForm: React.FC<{
 
     if (error) {
       setError(error.message || "Payment failed");
-      setProcessing(false);
+      onProcessingChange(false);
     } else if (paymentIntent?.status === "succeeded") {
-      setPaymentSuccess(true);
-
-      // Update the user's available rides after successful payment
       try {
-        const newAvailableRides = currentRides + selectedPackage;
+        const newAvailableRides = currentRides + selectedPackage.rides;
         const response = await fetch("/api/updateRides", {
           method: "POST",
           headers: {
@@ -99,52 +138,45 @@ const CheckoutForm: React.FC<{
           throw new Error("Failed to update available rides.");
         }
 
-        // After updating the rides, navigate to the success page
+        onPaymentComplete();
         router.push("/wallet/success");
       } catch (error) {
         console.error("Error updating available rides:", error);
         setError("Payment succeeded, but failed to update available rides.");
-      } finally {
-        setProcessing(false);
       }
     }
+    onProcessingChange(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6">
-      <div className="bg-gray-100 p-4 rounded-xl mb-4">
-        <CardElement className="p-2" />
-      </div>
-      <button
-        type="submit"
-        disabled={!stripe || processing}
-        className="mt-4 p-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full w-full font-semibold text-lg transition-all duration-300 hover:from-blue-600 hover:to-blue-700"
-      >
-        {processing ? 'Processing...' : 'Pay'}
-      </button>
+    <div>
+      <PaymentMethodInput />
       {error && <div className="mt-4 text-red-500 text-center">{error}</div>}
-      {paymentSuccess && <div className="mt-4 text-green-500 text-center">Payment successful!</div>}
-    </form>
+      <button onClick={handleSubmit} className="hidden">Pay</button>
+    </div>
   );
 };
 
-// Main Wallet component
 export default function Wallet() {
-  const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
-  const [proceedToPayment, setProceedToPayment] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<RidePackage | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const router = useRouter();
+  const [processing, setProcessing] = useState(false);
+
+  const ridePackages: RidePackage[] = [
+    { name: 'Go Pool', rides: 10, price: '4.00' },
+    { name: 'GoX', rides: 25, price: '5.10' },
+    { name: 'Go SELECT', rides: 50, price: '7.50' },
+    { name: 'Go BLACK', rides: 100, price: '8.50' },
+  ];
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const response = await fetch("/api/user");
-        if (!response.ok) {
-          throw new Error("Failed to fetch user data");
-        }
+        if (!response.ok) throw new Error("Failed to fetch user data");
         const data = await response.json();
         setUserData(data);
       } catch (err) {
@@ -158,90 +190,117 @@ export default function Wallet() {
     fetchUserData();
   }, []);
 
-  const handleProceedToPayment = async () => {
-    if (selectedPackage !== null) {
-      try {
-        const response = await fetch("/api/stripe/create-payment-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: selectedPackage * 100, // The amount must be in cents
-          }),
-        });
-        const data = await response.json();
-        setClientSecret(data.clientSecret);
-      } catch (error) {
-        console.error("Error creating payment intent:", error);
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      if (selectedPackage) {
+        try {
+          const amount = Math.round(parseFloat(selectedPackage.price) * 100);
+          console.log(`Creating payment intent for ${selectedPackage.name} with amount: ${amount}`);
+          const response = await fetch("/api/stripe/create-payment-intent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount }),
+          });
+          const data = await response.json();
+          if (data.clientSecret) {
+            setClientSecret(data.clientSecret);
+          } else {
+            throw new Error("No client secret received");
+          }
+        } catch (error) {
+          console.error("Error creating payment intent:", error);
+          setError(`Failed to initiate payment for ${selectedPackage.name}. Please try again.`);
+        }
+      }
+    };
+
+    createPaymentIntent();
+  }, [selectedPackage]);
+
+  const handlePackageSelect = (pkg: RidePackage) => {
+    console.log(`Selected package: ${pkg.name} with price: ${pkg.price}`);
+    setSelectedPackage(pkg);
+    setError(null);
+  };
+
+  const handlePaymentComplete = () => {
+    setSelectedPackage(null);
+    setClientSecret(null);
+    fetchUserData();
+  };
+
+  const handlePayButtonClick = () => {
+    if (selectedPackage) {
+      const payButton = document.querySelector('button.hidden') as HTMLButtonElement;
+      if (payButton) {
+        payButton.click();
       }
     }
   };
 
-  if (loading) {
-    return <div className="p-6 text-center font-semibold text-gray-600">Loading user data...</div>;
-  }
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch("/api/user");
+      if (!response.ok) {
+        throw new Error("Failed to fetch user data");
+      }
+      const data = await response.json();
+      setUserData(data);
+    } catch (err) {
+      console.error("Error refreshing user data:", err);
+    }
+  };
 
-  if (error) {
-    return <div className="p-6 text-center text-red-500 font-semibold">{error}</div>;
-  }
+  if (loading) return <div className="p-6 text-center font-semibold text-gray-600">Loading user data...</div>;
+  if (error) return <div className="p-6 text-center text-red-500 font-semibold">{error}</div>;
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      <h1 className="text-4xl font-bold mb-8 text-gray-900">Wallet</h1>
+    <div className="p-6 bg-white min-h-screen font-sans pb-24">
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">Wallet</h1>
       {userData && (
-        <div className="bg-gradient-to-r from-blue-400 to-blue-600 p-6 rounded-3xl mb-8 shadow-lg text-white">
+        <div className="bg-gradient-to-r from-gray-700 to-black p-6 rounded-3xl mb-8 shadow-lg text-white">
           <p className="font-semibold text-lg">Current Available Rides</p>
-          <p className="text-4xl font-bold mt-2">
-            {userData.available_rides}
-          </p>
+          <p className="text-4xl font-bold mt-2">{userData.available_rides}</p>
         </div>
       )}
-      {!proceedToPayment ? (
-        <>
-          <h2 className="text-2xl font-semibold mb-6 text-gray-800">
-            Select a Ride Package
-          </h2>
-          <RidePackage
-            rides={10}
-            price="50.00 €"
-            selected={selectedPackage === 10}
-            onSelect={() => setSelectedPackage(10)}
+      
+      <h2 className="text-2xl font-semibold mb-6 text-gray-700">Select a Ride Package</h2>
+      <RidePackageSelector
+        packages={ridePackages}
+        selectedPackage={selectedPackage}
+        onSelect={handlePackageSelect}
+      />
+      
+      {selectedPackage && clientSecret && userData && (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <CheckoutForm
+            selectedPackage={selectedPackage}
+            clientSecret={clientSecret}
+            userId={userData.user_id}
+            currentRides={userData.available_rides}
+            onPaymentComplete={handlePaymentComplete}
+            onProcessingChange={setProcessing}
           />
-          <RidePackage
-            rides={25}
-            price="80.00 €"
-            selected={selectedPackage === 25}
-            onSelect={() => setSelectedPackage(25)}
-          />
-
-          <button
-            onClick={() => {
-              setProceedToPayment(true);
-              handleProceedToPayment();
-            }}
-            className={`w-full py-4 rounded-full mt-8 text-lg font-semibold transition-all duration-300 ${
-              selectedPackage === null
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 active:from-blue-700 active:to-blue-800'
-            }`}
-            disabled={selectedPackage === null}
-          >
-            Go to Payment
-          </button>
-        </>
-      ) : (
-        <>
-          {clientSecret && stripePromise && userData && (
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm
-                selectedPackage={selectedPackage!}
-                clientSecret={clientSecret}
-                userId={userData.user_id}
-                currentRides={userData.available_rides}
-              />
-            </Elements>
-          )}
-        </>
+        </Elements>
       )}
+
+      {/* Bottom Navigation Bar */}
+      <div className="fixed bottom-4 left-0 right-0 flex justify-center items-center z-30">
+        <div className="flex items-center space-x-3 bg-black p-2 rounded-full shadow-lg">
+          <Link href="/" className="bg-black p-4 rounded-full flex items-center justify-center" style={{ width: '55px', height: '55px' }}>
+            <FaHome className="text-white text-xl" />
+          </Link>
+          <button
+            onClick={handlePayButtonClick}
+            disabled={!selectedPackage || processing}
+            className={`bg-yellow-600 text-white rounded-full font-bold px-8 py-4 transition-all duration-300 ${
+              !selectedPackage || processing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-800'
+            }`}
+          >
+            {processing ? 'Processing...' : `Pay $${selectedPackage?.price || '0.00'}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

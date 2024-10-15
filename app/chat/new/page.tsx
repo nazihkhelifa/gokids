@@ -71,35 +71,35 @@ export default function NewChat() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen font-sans">
-      <div className="bg-gradient-to-r from-blue-400 to-blue-600 text-white p-6 rounded-b-[2rem] shadow-lg">
+    <div className="bg-white min-h-screen font-sans">
+      <div className="bg-white text-gray-800 p-6 shadow-md">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/chat" className="text-white hover:text-gray-200 transition-colors duration-300">
+          <Link href="/chat" className="text-gray-600 hover:text-gray-800 transition-colors duration-300">
             <FaArrowLeft className="text-2xl" />
           </Link>
           <h1 className="text-2xl font-bold">New Chat</h1>
           <div className="w-6"></div>
         </div>
       </div>
-      <div className="p-6 -mt-8">
-        <div className="bg-white rounded-3xl shadow-md overflow-hidden p-4">
+      <div className="p-6">
+        <div className="bg-black rounded-lg shadow-md overflow-hidden p-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="message" className="block text-sm font-medium text-gray-200">
                 Start your conversation
               </label>
               <textarea
                 id="message"
                 name="message"
                 rows={4}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                className="mt-1 block w-full rounded-md bg-gray-800 text-gray-200 border-gray-700 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 placeholder="Type your message here..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 required
               ></textarea>
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
               className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"

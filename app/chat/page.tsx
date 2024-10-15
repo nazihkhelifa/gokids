@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
-import { FaArrowLeft, FaUser, FaEdit } from "react-icons/fa";
+import { FaArrowLeft, FaUser, FaEdit, FaStar } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import { collection, getDocs, query, orderBy, limit, Timestamp, where } from 'firebase/firestore';
 import { db } from '../firebase/clientApp';
@@ -114,7 +114,7 @@ export default function ChatList() {
   }
 
   return (
-    <div className="bg-white min-h-screen text-gray-800">
+    <div className="bg-white min-h-screen text-gray-200">
       {/* Header */}
       <div className="bg-white sticky top-0 z-10 border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -125,7 +125,7 @@ export default function ChatList() {
           <button
             onClick={handleNewChat}
             disabled={isLoading}
-            className="bg-[#276EF1] text-white p-2 rounded-full hover:bg-blue-600 transition-all duration-300 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="bg-gray-200 text-gray-800 p-2 rounded-full hover:bg-gray-300 transition-all duration-300 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             <FaEdit className="text-lg" />
           </button>
@@ -134,40 +134,45 @@ export default function ChatList() {
 
       {/* Chat list */}
       <div className="container mx-auto p-4">
-        <div className="space-y-2">
-          {conversations.map((conversation) => {
-            const lastMessage = conversation.messages && conversation.messages.length > 0 
-              ? conversation.messages[conversation.messages.length - 1] 
-              : null;
-            return (
-              <Link key={conversation.id} href={`/chat/${conversation.id}`}>
-                <div className="flex items-center py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
-                  <div className="relative">
-                    {driverImages[conversation.driver.id] ? (
-                      <img
-                        src={driverImages[conversation.driver.id]}
-                        alt={conversation.driver.name}
-                        className="w-12 h-12 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                        <FaUser className="text-gray-400" />
+        <div className="space-y-4">
+          {conversations.map((conversation) => (
+            <Link key={conversation.id} href={`/chat/${conversation.id}`} className="block">
+              <div className="bg-black rounded-lg p-4 shadow-md hover:shadow-lg transition-all duration-300 border border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-gray-700 rounded-full overflow-hidden mr-3">
+                      {driverImages[conversation.driver.id] ? (
+                        <img
+                          src={driverImages[conversation.driver.id]}
+                          alt={conversation.driver.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FaUser className="text-gray-400 text-2xl" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-200">{conversation.driver.name}</h3>
+                      <div className="flex items-center">
+                        <FaStar className="text-yellow-400 mr-1" />
+                        <span className="text-gray-400 text-sm">{conversation.driver.rating || '4.9'}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="flex-1 ml-4">
-                    <h3 className="font-semibold text-gray-800">{conversation.driver.name}</h3>
-                    <p className="text-gray-600 text-sm truncate">
-                      {lastMessage ? lastMessage.content.trim() : "No messages"}
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {lastMessage && lastMessage.timestamp ? formatTimestamp(lastMessage.timestamp) : "N/A"}
+                  <span className="text-sm text-gray-400">
+                    {formatTimestamp(conversation.lastMessageTime)}
                   </span>
                 </div>
-              </Link>
-            );
-          })}
+                <p className="text-gray-400 text-sm truncate">
+                  {conversation.messages && conversation.messages.length > 0
+                    ? conversation.messages[conversation.messages.length - 1].content.trim()
+                    : "No messages"}
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

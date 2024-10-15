@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   FaMapMarkerAlt,
   FaClock,
   FaCalendarAlt,
   FaUser,
+  FaHome,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 
 interface DateSelection {
@@ -24,7 +28,7 @@ interface Ride {
   pickup_address: string;
   drop_address: string;
   driver_name: string;
-  driver_image: string; // Add this field for driver image
+  driver_image: string;
   total_rides: number;
   created_at: string;
   updated_at: string;
@@ -32,7 +36,8 @@ interface Ride {
 
 export default function RideHistory() {
   const [scheduledRides, setScheduledRides] = useState<Ride[]>([]);
-  const [expandedRide, setExpandedRide] = useState<number | null>(null); // Track which ride is expanded
+  const [expandedRide, setExpandedRide] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'past' | 'upcoming'>('upcoming');
 
   const userId = 1; // Replace with dynamic user ID from your authentication system
 
@@ -55,12 +60,12 @@ export default function RideHistory() {
 
   const formatPrice = (price: number | string): string => {
     if (typeof price === 'number') {
-      return `€${price.toFixed(2)}`;
+      return `$${price.toFixed(2)}`;
     }
     if (typeof price === 'string') {
       const parsedPrice = parseFloat(price);
       if (!isNaN(parsedPrice)) {
-        return `€${parsedPrice.toFixed(2)}`;
+        return `$${parsedPrice.toFixed(2)}`;
       }
       return price;
     }
@@ -69,89 +74,109 @@ export default function RideHistory() {
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
     });
   };
 
   const toggleRideDetails = (rideId: number) => {
-    setExpandedRide(expandedRide === rideId ? null : rideId); // Toggle the ride details
+    setExpandedRide(expandedRide === rideId ? null : rideId);
   };
 
   if (scheduledRides.length === 0) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <p className="text-xl text-gray-600">No scheduled rides available.</p>
+      <div className="flex items-center justify-center h-screen bg-white text-black">
+        <p className="text-xl">No scheduled rides available.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Scheduled Rides</h2>
+    <div className="bg-white min-h-screen p-6 text-black pb-24">
+      <h2 className="text-2xl font-bold mb-6">My child trips</h2>
       {scheduledRides.map((ride) => (
         <div
           key={ride.id}
-          className="bg-blue-500 text-white p-6 rounded-2xl mb-6 shadow-lg cursor-pointer"
-          onClick={() => toggleRideDetails(ride.id)} // Toggle details on click
+          className="bg-gray-100 p-4 rounded-xl mb-4 cursor-pointer"
+          onClick={() => toggleRideDetails(ride.id)}
         >
-          <div className="flex items-center">
-            {/* Driver's image */}
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm">{formatDate(ride.dates[0].date)}</div>
+             {/* <div className="font-bold">{formatPrice(ride.price)}</div>*/}
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center mb-1">
+                <FaMapMarkerAlt className="mr-2 text-gray-500" />
+                <span className="text-sm">{ride.pickup_address}</span>
+              </div>
+              <div className="flex items-center">
+                <FaMapMarkerAlt className="mr-2 text-gray-500" />
+                <span className="text-sm">{ride.drop_address}</span>
+              </div>
+            </div>
             <img
               src={ride.driver_image}
               alt={ride.driver_name}
-              className="w-12 h-12 rounded-full mr-4" // Style for rounded image
+              className="w-10 h-10 rounded-full"
             />
-            <div className="flex-grow">
-              {/* Driver's name */}
-              <h2 className="text-2xl font-semibold">{ride.driver_name}</h2>
-              {/* Dates on a separate line */}
-              <p className="text-sm text-blue-200">{ride.dates.map(d => formatDate(d.date)).join(", ")}</p>
-            </div>
           </div>
-
-          {expandedRide === ride.id && ( // Show details if ride is expanded
-            <div className="mt-4">
-              <p className="text-blue-100 mb-4">
-                {ride.seats} seats • {formatPrice(ride.price)}
+          {expandedRide === ride.id && (
+            <div className="mt-4 text-sm">
+              <p className="mb-2">
+                <FaUser className="inline mr-2" />
+                Driver: {ride.driver_name}
               </p>
-              <div className="space-y-2">
-                <p className="flex items-center">
-                  <FaMapMarkerAlt className="mr-2" />
-                  <span className="font-semibold mr-2">Pickup:</span>{" "}
-                  {ride.pickup_address}
-                </p>
-                <p className="flex items-center">
-                  <FaMapMarkerAlt className="mr-2" />
-                  <span className="font-semibold mr-2">Drop:</span>{" "}
-                  {ride.drop_address}
-                </p>
-                <div className="flex items-start">
-                  <FaClock className="mr-2 mt-1" />
-                  <div>
-                    <span className="font-semibold mr-2">Time:</span>
-                    {ride.dates.map((dateSelection) => (
-                      <p key={dateSelection.date}>
-                        {formatDate(dateSelection.date)}:
-                        {dateSelection.morning && ` Morning: ${dateSelection.morning}`}
-                        {dateSelection.morning && dateSelection.afternoon && ','}
-                        {dateSelection.afternoon && ` Afternoon: ${dateSelection.afternoon}`}
-                        {!dateSelection.morning && !dateSelection.afternoon && ' No pickup times specified'}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-                <p className="flex items-center">
-                  <FaCalendarAlt className="mr-2" />
-                  <span className="font-semibold mr-2">Total Rides:</span>{" "}
-                  {ride.total_rides}
-                </p>
-              </div>
+              <p className="mb-2">
+                <FaClock className="inline mr-2" />
+                Time: {ride.dates[0].morning || ride.dates[0].afternoon || 'Not specified'}
+              </p>
+              <p className="mb-2">
+                <FaCalendarAlt className="inline mr-2" />
+                Total Rides: {ride.total_rides}
+              </p>
+              <p>Vehicle: {ride.vehicle_name} ({ride.seats} seats)</p>
             </div>
           )}
         </div>
       ))}
+
+      {/* Centered Bottom Navigation Bar */}
+      <div className="fixed bottom-4 left-0 right-0 flex justify-center items-center z-30">
+        <div className="flex items-center space-x-3">
+          {/* Home button on the left */}
+          <Link
+            href="/"
+            className="bg-black rounded-full flex items-center justify-center transition-colors duration-300"
+            style={{ width: '55px', height: '55px' }}
+          >
+            <FaHome className="text-white text-xl" />
+          </Link>
+
+          {/* Past and Upcoming buttons on the right */}
+          <div className="bg-black rounded-full flex items-center space-x-2 px-4" style={{ height: '55px' }}>
+            <button
+              onClick={() => setViewMode('past')}
+              className={`px-3 py-1 rounded-full text-xs font-bold ${
+                viewMode === 'past' ? 'bg-white text-black' : 'text-white'
+              }`}
+            >
+              <FaChevronLeft className="inline mr-1" />
+              PAST
+            </button>
+            <button
+              onClick={() => setViewMode('upcoming')}
+              className={`px-3 py-1 rounded-full text-xs font-bold ${
+                viewMode === 'upcoming' ? 'bg-white text-black' : 'text-white'
+              }`}
+            >
+              UPCOMING
+              <FaChevronRight className="inline ml-1" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
