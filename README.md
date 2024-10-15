@@ -1,4 +1,5 @@
-# Ride Tracking App
+# GoKids Ride 
+Child-schedule-Tracking App
 
 ## Overview
 
